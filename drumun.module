@@ -1,25 +1,25 @@
 <?php
 
-function thimun_init() {
+function drumun_init() {
   global $user;
   if($user->uid > 0 && !db_result(db_query('SELECT COUNT(*) FROM {comments} WHERE uid = %d', $user->uid))) {
     drupal_set_message('It looks like you haven\'t posted anything yet. Please take a minute to post an introduction for yourself at the topic for introductions in your section.', 'error');
   }
 }
 
-function thimun_menu_alter(&$items) {
+function drumun_menu_alter(&$items) {
   //remove the extremely unprofessional 'node' page
   $items['node']['access callback'] = FALSE;
 }
 
-function thimun_load_profile(&$user) {
-  $result = db_query('SELECT * FROM {thimun_information} WHERE uid = %d', $user->uid);
+function drumun_load_profile(&$user) {
+  $result = db_query('SELECT * FROM {drumun_information} WHERE uid = %d', $user->uid);
   while ($ret = db_fetch_array($result)) {
     return $ret;
   }
 }
 
-function thimun_save_profile(&$edit, &$user, $register = FALSE) {
+function drumun_save_profile(&$edit, &$user, $register = FALSE) {
 
   if ($edit['nickname'] == '') $edit['nickname'] = $edit['fname'];
   
@@ -32,8 +32,8 @@ function thimun_save_profile(&$edit, &$user, $register = FALSE) {
     
   if ($register || user_access('modify user information')) {
   
-    if ($register || !drupal_write_record('thimun_information', $test,  'uid')) {
-      drupal_write_record('thimun_information', $test);
+    if ($register || !drupal_write_record('drumun_information', $test,  'uid')) {
+      drupal_write_record('drumun_information', $test);
     }
   
     //change role
@@ -50,20 +50,20 @@ function thimun_save_profile(&$edit, &$user, $register = FALSE) {
     $edit['nickname'] = NULL;
     $edit['committee'] = NULL;
     $edit['delegation'] = NULL;
-    thimun_build_signature($user);
-    thimun_build_realname($user);
+    drumun_build_signature($user);
+    drumun_build_realname($user);
   }
 }
 
-function thimun_build_realname($user) {
+function drumun_build_realname($user) {
   //can't use _once because the other one takes priority and this one gets skipped
   //thus making $delegations and $committees equal to NULL
-  require('thimun.arrays.inc');
+  require('drumun.arrays.inc');
   
-  $fid = variable_get('thimun_display_name_fid', 0);
+  $fid = variable_get('drumun_display_name_fid', 0);
   
   //build
-  $profile = thimun_load_profile($user);
+  $profile = drumun_load_profile($user);
   if ($profile['committee'] != 'NONE') {
     $text = $profile['committee'].' ';
   }
@@ -101,14 +101,14 @@ function thimun_build_realname($user) {
   }
 }
 
-function thimun_build_signature($user) {
+function drumun_build_signature($user) {
   //can't use _once because the other one takes priority and this one gets skipped
   //thus making $delegations and $committees equal to NULL
-  require('thimun.arrays.inc');
+  require('drumun.arrays.inc');
   $delegations = array_merge($delegations, $special);
   
   //build
-  $profile = thimun_load_profile($user);
+  $profile = drumun_load_profile($user);
   $del = $delegations[$profile['delegation']];
   $com = $committees[$profile['committee']];
   if($profile['committee'] == 'Y1' || $profile['committee'] == 'Y2') {
@@ -145,50 +145,50 @@ function thimun_build_signature($user) {
   }
 }
 
-function thimun_form_profile($edit, $user, $register = FALSE) {
-  require_once('thimun.arrays.inc');
+function drumun_form_profile($edit, $user, $register = FALSE) {
+  require_once('drumun.arrays.inc');
   if (user_access('administer users')) {
     $delegations = array_merge($delegations, $special);
   }
   $form = array();
-  $form['THIMUN'] = array(
+  $form['drumun'] = array(
     '#title' => 'THIMUN Information',
     '#type' => 'fieldset',
   );
-  $form['THIMUN']['fname'] = array(
+  $form['drumun']['fname'] = array(
     '#type' => 'textfield',
-    '#default_value' => isset($edit['THIMUN']['fname']) ? $edit['THIMUN']['fname'] : '',
+    '#default_value' => isset($edit['drumun']['fname']) ? $edit['drumun']['fname'] : '',
     '#title' => 'First Name',
     '#maxlength' => '50',
     '#required' => TRUE,
     '#weight' => 1,
   );
-  $form['THIMUN']['lname'] = array(
+  $form['drumun']['lname'] = array(
     '#type' => 'textfield',
-    '#default_value' => isset($edit['THIMUN']['lname']) ? $edit['THIMUN']['lname'] : '',
+    '#default_value' => isset($edit['drumun']['lname']) ? $edit['drumun']['lname'] : '',
     '#title' => 'Last Name',
     '#maxlength' => '50',
     '#required' => TRUE,
     '#weight' => 2,
   );
-  $form['THIMUN']['nickname'] = array(
+  $form['drumun']['nickname'] = array(
     '#type' => 'textfield',
-    '#default_value' => isset($edit['THIMUN']['nickname']) ? $edit['THIMUN']['nickname'] : '',
+    '#default_value' => isset($edit['drumun']['nickname']) ? $edit['drumun']['nickname'] : '',
     '#title' => 'Nickname',
     '#maxlength' => '50',
     '#weight' => 3,
   );
-  $form['THIMUN']['committee'] = array(
+  $form['drumun']['committee'] = array(
     '#type' => 'select',
-    '#default_value' => isset($edit['THIMUN']['committee']) ? $edit['THIMUN']['committee'] : '',
+    '#default_value' => isset($edit['drumun']['committee']) ? $edit['drumun']['committee'] : '',
     '#title' => 'Committee',
     '#options' => $committees,
     '#required' => TRUE,
     '#weight' => 4,
   );
-  $form['THIMUN']['delegation'] = array(
+  $form['drumun']['delegation'] = array(
     '#type' => 'select',
-    '#default_value' => isset($edit['THIMUN']['delegation']) ? $edit['THIMUN']['delegation'] : '',
+    '#default_value' => isset($edit['drumun']['delegation']) ? $edit['drumun']['delegation'] : '',
     '#title' => 'Delegation',
     '#options' => drupal_map_assoc(array_keys($delegations)),
     '#required' => TRUE,
@@ -204,21 +204,21 @@ function thimun_form_profile($edit, $user, $register = FALSE) {
   return $form;
 }
 
-function thimun_retrieve_fields($uid) {
-  $sql = 'SELECT * FROM {thimun_information} WHERE uid = %d';
+function drumun_retrieve_fields($uid) {
+  $sql = 'SELECT * FROM {drumun_information} WHERE uid = %d';
   $result = db_query($sql, $uid);
   return db_fetch_array($result);
 }
 
-function thimun_perm() {
+function drumun_perm() {
   return array('modify user information');
 }
 
-function thimun_user($op, &$edit, &$account) {
+function drumun_user($op, &$edit, &$account) {
   switch ($op) {
     case 'view':
       if (user_access('modify user information')) {
-        $account->content['thimun_modify_info'] = array(
+        $account->content['drumun_modify_info'] = array(
           '#type'   => 'markup',
           '#value'  => l(t('Modify this user\'s THIMUN information'), 'user/'.$account->uid.'/edit'),
           '#weight' => 11,
@@ -227,26 +227,26 @@ function thimun_user($op, &$edit, &$account) {
       }
       break;
     case 'load':
-      $account->THIMUN = thimun_load_profile($account);
+      $account->drumun = drumun_load_profile($account);
       return;
     case 'register':
-      return thimun_form_profile($edit, $account, TRUE);
+      return drumun_form_profile($edit, $account, TRUE);
     case 'update':
-      return thimun_save_profile($edit, $account);
+      return drumun_save_profile($edit, $account);
     case 'insert':
-      return thimun_save_profile($edit, $account, TRUE);
+      return drumun_save_profile($edit, $account, TRUE);
     /*case 'view':
       return profile_view_profile($user);*/
     case 'form':
-      return thimun_form_profile($edit, $account);
+      return drumun_form_profile($edit, $account);
     case 'validate':
-      return thimun_validate_profile($edit);
+      return drumun_validate_profile($edit);
     case 'delete':
-      db_query('DELETE FROM {thimun_information} WHERE uid = %d', $account->uid);
+      db_query('DELETE FROM {drumun_information} WHERE uid = %d', $account->uid);
   }
 }
 
-function thimun_form_alter(&$form, $form_state, $form_id) {
+function drumun_form_alter(&$form, $form_state, $form_id) {
   // Normally a switch is used because you may want to alter more than
   // one form and it is easy to add a new case for each form.
   switch ($form_id) {
@@ -254,13 +254,13 @@ function thimun_form_alter(&$form, $form_state, $form_id) {
     case 'user_profile_form':
       //Prevent people from tampering with their profile after they have registered.
       if (!user_access('modify user information')) {
-        unset($form['THIMUN']);
+        unset($form['drumun']);
         unset($form['signature_settings']);
-        $form['THIMUN Information'] = array(
+        $form['drumun'] = array(
           '#title' => 'THIMUN Information',
           '#type' => 'fieldset',
         );
-        $form['THIMUN Information']['error'] = array(
+        $form['drumun']['error'] = array(
           '#value' => t('You may not change your THIMUN information. If the information we have is inaccurate, please request your MUN Director to send an email to forum@thimun.org in order to verify the authenticity of the change.'),
         );
         unset($form['enable_pm_mail']);
@@ -269,61 +269,32 @@ function thimun_form_alter(&$form, $form_state, $form_id) {
   }
 }
 
-function thimun_switch_out_values($thimun) {
-  require_once 'thimun.arrays.inc';
-  foreach($thimun as $field => $values) {
+function drumun_switch_out_values($drumun) {
+  require_once 'drumun.arrays.inc';
+  foreach($drumun as $field => $values) {
     if (is_array($values)) {
       if($values['#type'] == 'select') {
         switch($field) {
-          case variable_get('thimun_long_committee_field', NULL):
+          case variable_get('drumun_long_committee_field', NULL):
             $values['#options'] = $committees;
             break;
-          case variable_get('thimun_short_delegation_field', NULL):
+          case variable_get('drumun_short_delegation_field', NULL):
             $values['#options'] = array_keys($delegations);
             break;
         }
       }
     }
   }
-  return $thimun;
+  return $drumun;
 }
 
-function thimun_block($op = 'list', $delta = 0, $edit = array()) {
-  // The $op parameter determines what piece of information is being requested.
-  switch ($op) {
-    case 'list':
-      // If $op is "list", we just need to return a list of block descriptions.
-      // This is used to provide a list of possible blocks to the administrator,
-      // end users will not see these descriptions.
-      $blocks[0] = array(
-        'info'       => t('THIMUN Global Announcements'),
-        'visibility' => 0,
-        'pages' => 'node/'.variable_get('thimun_announcements_nid', 0),
-      );
-      return $blocks;
-    case 'view': 
-      // If $op is "view", then we need to generate the block for display
-      // purposes. The $delta parameter tells us which block is being requested.
-      switch ($delta) {
-        case 0:
-          $node = node_load(variable_get('thimun_announcements_nid', 0));
-          $block = array(
-            'subject' => $node->title,
-            'content' => $node->teaser.' '.l('Read more...', 'node/'.$node->nid),
-          );
-          break;
-      }
-      return $block;
-  }
-}
-
-function thimun_validate_profile($edit) {
+function drumun_validate_profile($edit) {
   $com = $edit['committee'];
   $del = $edit['delegation'];
   
   
   if (user_access('administer users')) {
-    require('thimun.arrays.inc');
+    require('drumun.arrays.inc');
     // No checks for special people.
     if (in_array($del, $special)) {
       return $edit;
@@ -341,7 +312,7 @@ function thimun_validate_profile($edit) {
   }
   
   //check country allowances
-  $count = db_result(db_query('SELECT COUNT(*) FROM {thimun_information} WHERE committee="%s" AND delegation="%s" AND uid != %d', $com, $del, $edit['_account']->uid));
+  $count = db_result(db_query('SELECT COUNT(*) FROM {drumun_information} WHERE committee="%s" AND delegation="%s" AND uid != %d', $com, $del, $edit['_account']->uid));
   //all are in GA, but only 1 per country per delegation is allowed
   if($com == '1' || $com == '2' || $com == '3' || $com == '5' || $com == '6') {
     //for GA, the delegation arrays define who is denied.

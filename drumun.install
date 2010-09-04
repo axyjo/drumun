@@ -1,14 +1,13 @@
 <?php
 
-function thimun_install() {
-  variable_set('thimun_announcements_nid', 2);
-  variable_set('thimun_display_name_fid', 9);
-  drupal_install_schema('thimun');
+function drumun_install() {
+  variable_set('drumun_display_name_fid', 9);
+  drupal_install_schema('drumun');
 }
 
-function thimun_schema() {
-  $schema['thimun_information'] = array(
-    'description' => 'Holds info about each user related to the THIMUN Conference',
+function drumun_schema() {
+  $schema['drumun_information'] = array(
+    'description' => 'Holds info about each user related to the conference',
     'fields' => array(
       'uid' => array(
         'description' => 'User ID of whom we\'re storing',
@@ -56,8 +55,7 @@ function thimun_schema() {
   return $schema;
 }
 
-function thimun_uninstall() {
-  variable_del('thimun_announcements_nid');
-  variable_set('thimun_display_name_fid');
-  drupal_uninstall_schema('thimun');
+function drumun_uninstall() {
+  variable_set('drumun_display_name_fid');
+  drupal_uninstall_schema('drumun');
 }
