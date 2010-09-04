@@ -22,20 +22,20 @@ function drumun_load_profile(&$user) {
 function drumun_save_profile(&$edit, &$user, $register = FALSE) {
 
   if ($edit['nickname'] == '') $edit['nickname'] = $edit['fname'];
-  
+
   $test->uid = $user->uid;
   $test->fname = $edit['fname'];
   $test->lname = $edit['lname'];
   $test->nickname = $edit['nickname'];
   $test->delegation = $edit['delegation'];
   $test->committee = $edit['committee'];
-    
+
   if ($register || user_access('modify user information')) {
-  
+
     if ($register || !drupal_write_record('drumun_information', $test,  'uid')) {
       drupal_write_record('drumun_information', $test);
     }
-  
+
     //change role
     $rid = db_result(db_query("SELECT rid FROM {role} WHERE name='%s'", $edit['committee']));
     //checks range to make sure it's within the roles we want to update
@@ -43,7 +43,7 @@ function drumun_save_profile(&$edit, &$user, $register = FALSE) {
       unset($edit['roles'][$i]);
     }
     $edit['roles'][$rid] = TRUE;
-  
+
     // Mark fields as handled (prevents saving to user->data).
     $edit['fname'] = NULL;
     $edit['lname'] = NULL;
@@ -59,9 +59,9 @@ function drumun_build_realname($user) {
   //can't use _once because the other one takes priority and this one gets skipped
   //thus making $delegations and $committees equal to NULL
   require('drumun.arrays.inc');
-  
+
   $fid = variable_get('drumun_display_name_fid', 0);
-  
+
   //build
   $profile = drumun_load_profile($user);
   if ($profile['committee'] != 'NONE') {
@@ -70,18 +70,18 @@ function drumun_build_realname($user) {
   if ($profile['delegation'] != 'NONE') {
     $text .= $profile['delegation'].' ';
   }
-  
-  
+
+  // Check for duplicate matches between people.
   if (db_result(db_query("SELECT COUNT(*) FROM {profile_values} WHERE fid = %d AND value = '%s'", $fid, $text.$profile['fname']))) {
     $text .= $profile['nickname'];
   } else {
     $text .= $profile['fname'];
   }
-  
+
   if ($profile['delegation'] == 'Forum Architect and Administrator' || $profile['delegation'] == 'Tester' || $profile['delegation'] == 'MUN Director' || $profile['delegation'] == 'THIMUN Board of Directors' || $profile['delegation'] == 'Conference Management' || $profile['delegation'] == 'Deputy Secretary General' || $profile['delegation'] == 'Secretary General' || $profile['delegation'] == 'President of the General Assembly') {
     $text = $profile['fname'].' '.$profile['lname'];
   }
-  
+
   //save to profile field
   if (db_result(db_query("SELECT value FROM {profile_values} WHERE uid = %d AND fid = %d", $user->uid, $fid)) != FALSE) {
     db_query("UPDATE {profile_values} SET value='%s' WHERE uid = %d AND fid = %d", array($text, $user->uid, $fid));
@@ -89,7 +89,7 @@ function drumun_build_realname($user) {
   else {
     db_query("INSERT INTO {profile_values} (uid, fid, value) VALUES (%d, %d, '%s')", array($user->uid, $fid, $text));
   }
-  
+
   $result = db_query("SELECT u.uid, u.name, u.mail FROM {users} u WHERE uid >= %d ORDER BY uid ASC", $user->uid);
   while ($row = db_fetch_object($result)) {
     $realname->uid = $row->uid;
@@ -106,7 +106,7 @@ function drumun_build_signature($user) {
   //thus making $delegations and $committees equal to NULL
   require('drumun.arrays.inc');
   $delegations = array_merge($delegations, $special);
-  
+
   //build
   $profile = drumun_load_profile($user);
   $del = $delegations[$profile['delegation']];
@@ -118,7 +118,7 @@ function drumun_build_signature($user) {
   }
   $text = $profile['fname'].' '.$profile['lname'];
   $text .= "\n";
-  
+
   if (!in_array($del, $special)) {
     $text .= 'Delegate of '.$del;
     $text .= "\n";
@@ -135,7 +135,7 @@ function drumun_build_signature($user) {
     //Nicknames used as School field for MUN Directors
     if ($del == 'MUN Director') $text .= "\n".$profile['nickname'];
   }
-  
+
   //save to signature database
   if (db_result(db_query("SELECT uid FROM {users_signature} WHERE uid = %d", $user->uid)) != FALSE) {
     db_query("UPDATE {users_signature} SET signature='%s' WHERE uid = %d", array($text, $user->uid));
@@ -196,7 +196,7 @@ function drumun_form_profile($edit, $user, $register = FALSE) {
     //ensure that it's not being filtered for the Ivory Coast one.
     // ^^ that's being done in acquia_thimun's template.php
   );
-  
+
   $form['submit'] = array(
     '#type' => 'submit',
     '#value' => t('Save'),
@@ -291,8 +291,8 @@ function drumun_switch_out_values($drumun) {
 function drumun_validate_profile($edit) {
   $com = $edit['committee'];
   $del = $edit['delegation'];
-  
-  
+
+
   if (user_access('administer users')) {
     require('drumun.arrays.inc');
     // No checks for special people.
@@ -300,7 +300,7 @@ function drumun_validate_profile($edit) {
       return $edit;
     }
   }
-  
+
   //check for nones
   if($com == 'NONE') {
     form_set_error('committee', t('All delegates must specify a committee. If you are not a delegate, please contact forum@thimun.org to have your account created for you.'));
@@ -310,7 +310,7 @@ function drumun_validate_profile($edit) {
   } elseif (($com != 'Y1' && $com != 'Y2' && $com != 'NONE') && $del == 'NONE') {
     form_set_error('delegation', t('Non Youth Assembly delegates must specify a delegation.'));
   }
-  
+
   //check country allowances
   $count = db_result(db_query('SELECT COUNT(*) FROM {drumun_information} WHERE committee="%s" AND delegation="%s" AND uid != %d', $com, $del, $edit['_account']->uid));
   //all are in GA, but only 1 per country per delegation is allowed
@@ -328,25 +328,25 @@ function drumun_validate_profile($edit) {
     if($com == '3' && in_array($del, $delegations_ga3)) {
       form_set_error('delegation', t('The delegation that you have selected is not a member of the General Assembly Third Committee.'));
     }
-    
+
     //TODO: check with JZ about ECA and GA4 misprint in handbook (pg11)
     //that's right. no non-countries in GA5!
     $delegations_ga5 = array('Holy See','Palestinian Authority','Amnesty International','Friends of the Earth','Greenpeace','Human Rights Watch','ECA','ESCAP','ESCWA','FAO','IFAD','ILO','IMF','INSTRAW','OCHA','UNCTAD','UNCDF','UNDP','UNEP','UNESCO','UNFPA','UNHCHR','UNICEF','UNIDO','WHO','World Bank','World Trade Organization');
     if($com == '5' && in_array($del, $delegations_ga5)) {
       form_set_error('delegation', t('The delegation that you have selected is not a member of the General Assembly Fifth Committee.'));
     }
-    
+
     //same with GA6
     $delegations_ga6 = array('Holy See','Palestinian Authority','Amnesty International','Friends of the Earth','Greenpeace','Human Rights Watch','ECA','ESCAP','ESCWA','FAO','IFAD','ILO','IMF','INSTRAW','OCHA','UNCTAD','UNCDF','UNDP','UNEP','UNESCO','UNFPA','UNHCHR','UNICEF','UNIDO','WHO','World Bank','World Trade Organization');
     if($com == '6' && in_array($del, $delegations_ga6)) {
       form_set_error('delegation', t('The delegation that you have selected is not a member of the General Assembly Sixth Committee.'));
     }
-    
+
     if($count != 0) {
       form_set_error('delegation', t('The delegation you have selected already has a person in that committee. If this is an error, please ask your MUN Director to contact forum@thimun.org.'));
     }
   }
-  
+
   //SC
   $sc = array('Austria', 'Burkina Faso', 'Costa Rica', 'Croatia', 'Japan', 'Libya', 'Mexico', 'Turkey', 'Uganda', 'Viet Nam', 'China', 'France', 'Russia', 'United Kingdom', 'United States of America');
   if($com == 'S') {
@@ -357,7 +357,7 @@ function drumun_validate_profile($edit) {
       form_set_error('delegation', t('The delegation that you have selected has reached the maximum number of members it can send to the Security Council.'));
     }
   }
-  
+
   //Eco
   $countries_eco = array('Algeria', 'Barbados', 'Belarus', 'Bolivia', 'Brazil', 'Cameroon', 'Cape Verde', 'China', 'Congo', 'C&ocirc;te d\'Ivoire', 'El Salvador', 'Estonia', 'France', 'Germany', 'Greece', 'Guatemala', 'Guinea-Bissau', 'India', 'Indonesia', 'Iraq', 'Japan', 'Kazakhstan', 'Liechtenstein', 'Luxembourg', 'Malawi', 'Malaysia', 'Mauritius', 'Moldova', 'Morocco', 'Mozambique', 'Namibia', 'Netherlands', 'New Zealand', 'Niger', 'Norway', 'Pakistan', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Rep. Korea', 'Romania', 'Russia', 'Saint Kitts & Nevis', 'Saint Lucia', 'Saudi Arabia', 'Somalia', 'Sudan', 'Sweden', 'United Kingdom', 'United States of America', 'Uruguay', 'Venezuela');
   if($com == 'E') {
@@ -372,7 +372,7 @@ function drumun_validate_profile($edit) {
       form_set_error('delegation', t('The delegation that you have selected has reached the maximum number of members it can send to the ECOSOC.'));
     }
   }
-  
+
   //csd
   $countries_csd = array('Antigua & Barbuda', 'Australia', 'Bahrain', 'Belarus', 'Belgium', 'Belize', 'Bolivia', 'Cameroon', 'Canada', 'Cape Verde', 'Chile', 'China', 'Costa Rica', 'Croatia', 'Cuba', 'Czech Republic', 'DPR Korea', 'DR Congo', 'Djibouti', 'France', 'Gambia', 'Germany', 'Guatemala', 'Guinea', 'Haiti', 'India', 'Indonesia', 'Iran', 'Israel', 'Italy', 'Japan', 'Kuwait', 'Mexico', 'Monaco', 'Netherlands', 'Peru', 'Poland', 'Portugal', 'Rep. Korea', 'Russia',  'Saudi Arabia', 'Senegal', 'Serbia', 'South Africa', 'Spain', 'Sudan', 'Sweden', 'Thailand', 'Tunisia', 'United Kingdom', 'United States of America', 'Tanzania', 'Zambia', 'Zimbabwe');
   if($com == 'C') {
@@ -387,7 +387,7 @@ function drumun_validate_profile($edit) {
       form_set_error('delegation', t('The delegation that you have selected has reached the maximum number of members it can send to the Commission on Sustainable Development.'));
     }
   }
-  
+
   //ICJ and APQ
   if($com == 'I') {
     form_get_errors();
