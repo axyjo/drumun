@@ -1,0 +1,63 @@
+<?php
+
+function thimun_install() {
+  variable_set('thimun_announcements_nid', 2);
+  variable_set('thimun_display_name_fid', 9);
+  drupal_install_schema('thimun');
+}
+
+function thimun_schema() {
+  $schema['thimun_information'] = array(
+    'description' => 'Holds info about each user related to the THIMUN Conference',
+    'fields' => array(
+      'uid' => array(
+        'description' => 'User ID of whom we\'re storing',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'fname' => array(
+        'description' => 'First name.',
+        'type' => 'varchar',
+        'length' => '50',
+        'not null' => TRUE,
+        'default' => ' '
+      ),
+      'lname' => array(
+        'description' => 'Last name.',
+        'type' => 'varchar',
+        'length' => '50',
+        'not null' => TRUE,
+        'default' => ' '
+      ),
+      'nickname' => array(
+        'type' => 'varchar',
+        'length' => '50',
+        'not null' => TRUE,
+        'default' => ' '
+      ),
+      'committee' => array(
+        'description' => 'Short version of committee being stored.',
+        'type' => 'varchar',
+        'length' => '10',
+        'not null' => TRUE,
+        'default' => 'NONE'
+      ),
+      'delegation' => array(
+        'description' => 'Short version of delegation being stored.',
+        'type' => 'varchar',
+        'length' => '50',
+        'not null' => TRUE,
+        'default' => 'NONE'
+      ),
+    ),
+    'primary key' => array('uid'),
+  );
+  return $schema;
+}
+
+function thimun_uninstall() {
+  variable_del('thimun_announcements_nid');
+  variable_set('thimun_display_name_fid');
+  drupal_uninstall_schema('thimun');
+}

@@ -1,0 +1,430 @@
+<?php
+
+function thimun_init() {
+  global $user;
+  if($user->uid > 0 && !db_result(db_query('SELECT COUNT(*) FROM {comments} WHERE uid = %d', $user->uid))) {
+    drupal_set_message('It looks like you haven\'t posted anything yet. Please take a minute to post an introduction for yourself at the topic for introductions in your section.', 'error');
+  }
+}
+
+function thimun_menu_alter(&$items) {
+  //remove the extremely unprofessional 'node' page
+  $items['node']['access callback'] = FALSE;
+}
+
+function thimun_load_profile(&$user) {
+  $result = db_query('SELECT * FROM {thimun_information} WHERE uid = %d', $user->uid);
+  while ($ret = db_fetch_array($result)) {
+    return $ret;
+  }
+}
+
+function thimun_save_profile(&$edit, &$user, $register = FALSE) {
+
+  if ($edit['nickname'] == '') $edit['nickname'] = $edit['fname'];
+  
+  $test->uid = $user->uid;
+  $test->fname = $edit['fname'];
+  $test->lname = $edit['lname'];
+  $test->nickname = $edit['nickname'];
+  $test->delegation = $edit['delegation'];
+  $test->committee = $edit['committee'];
+    
+  if ($register || user_access('modify user information')) {
+  
+    if ($register || !drupal_write_record('thimun_information', $test,  'uid')) {
+      drupal_write_record('thimun_information', $test);
+    }
+  
+    //change role
+    $rid = db_result(db_query("SELECT rid FROM {role} WHERE name='%s'", $edit['committee']));
+    //checks range to make sure it's within the roles we want to update
+    for($i = 5; $i <= 14; $i++) {
+      unset($edit['roles'][$i]);
+    }
+    $edit['roles'][$rid] = TRUE;
+  
+    // Mark fields as handled (prevents saving to user->data).
+    $edit['fname'] = NULL;
+    $edit['lname'] = NULL;
+    $edit['nickname'] = NULL;
+    $edit['committee'] = NULL;
+    $edit['delegation'] = NULL;
+    thimun_build_signature($user);
+    thimun_build_realname($user);
+  }
+}
+
+function thimun_build_realname($user) {
+  //can't use _once because the other one takes priority and this one gets skipped
+  //thus making $delegations and $committees equal to NULL
+  require('thimun.arrays.inc');
+  
+  $fid = variable_get('thimun_display_name_fid', 0);
+  
+  //build
+  $profile = thimun_load_profile($user);
+  if ($profile['committee'] != 'NONE') {
+    $text = $profile['committee'].' ';
+  }
+  if ($profile['delegation'] != 'NONE') {
+    $text .= $profile['delegation'].' ';
+  }
+  
+  
+  if (db_result(db_query("SELECT COUNT(*) FROM {profile_values} WHERE fid = %d AND value = '%s'", $fid, $text.$profile['fname']))) {
+    $text .= $profile['nickname'];
+  } else {
+    $text .= $profile['fname'];
+  }
+  
+  if ($profile['delegation'] == 'Forum Architect and Administrator' || $profile['delegation'] == 'Tester' || $profile['delegation'] == 'MUN Director' || $profile['delegation'] == 'THIMUN Board of Directors' || $profile['delegation'] == 'Conference Management' || $profile['delegation'] == 'Deputy Secretary General' || $profile['delegation'] == 'Secretary General' || $profile['delegation'] == 'President of the General Assembly') {
+    $text = $profile['fname'].' '.$profile['lname'];
+  }
+  
+  //save to profile field
+  if (db_result(db_query("SELECT value FROM {profile_values} WHERE uid = %d AND fid = %d", $user->uid, $fid)) != FALSE) {
+    db_query("UPDATE {profile_values} SET value='%s' WHERE uid = %d AND fid = %d", array($text, $user->uid, $fid));
+  }
+  else {
+    db_query("INSERT INTO {profile_values} (uid, fid, value) VALUES (%d, %d, '%s')", array($user->uid, $fid, $text));
+  }
+  
+  $result = db_query("SELECT u.uid, u.name, u.mail FROM {users} u WHERE uid >= %d ORDER BY uid ASC", $user->uid);
+  while ($row = db_fetch_object($result)) {
+    $realname->uid = $row->uid;
+    $realname->realname = realname_make_name($row);
+    // Try to update, if fail - try to insert.
+    if (!drupal_write_record('realname', $realname,  'uid')) {
+      drupal_write_record('realname', $realname);
+    }
+  }
+}
+
+function thimun_build_signature($user) {
+  //can't use _once because the other one takes priority and this one gets skipped
+  //thus making $delegations and $committees equal to NULL
+  require('thimun.arrays.inc');
+  $delegations = array_merge($delegations, $special);
+  
+  //build
+  $profile = thimun_load_profile($user);
+  $del = $delegations[$profile['delegation']];
+  $com = $committees[$profile['committee']];
+  if($profile['committee'] == 'Y1' || $profile['committee'] == 'Y2') {
+    $arr = explode(' - ', $com);
+    $com = $arr[0];
+    $del = 'the Committee on ' . $arr[1];
+  }
+  $text = $profile['fname'].' '.$profile['lname'];
+  $text .= "\n";
+  
+  if (!in_array($del, $special)) {
+    $text .= 'Delegate of '.$del;
+    $text .= "\n";
+    $text .= $com;
+  } elseif ($del == 'Deputy President' || $del == 'President' ||$del == 'Deputy Chair' || $del == 'Chair' || $del == 'President of the General Assembly' || $del == 'Coordinator' || $del == 'YA Adult Coordinator') {
+    $text .= $del;
+    if ($com != '(none)') {
+      $text .= ' of the ' .  $com;
+    }
+    $text .= "\n";
+    $text .= 'Student Officer';
+  } else {
+    $text .= $del;
+    //Nicknames used as School field for MUN Directors
+    if ($del == 'MUN Director') $text .= "\n".$profile['nickname'];
+  }
+  
+  //save to signature database
+  if (db_result(db_query("SELECT uid FROM {users_signature} WHERE uid = %d", $user->uid)) != FALSE) {
+    db_query("UPDATE {users_signature} SET signature='%s' WHERE uid = %d", array($text, $user->uid));
+  }
+  else {
+    db_query("INSERT INTO {users_signature} (uid, signature) VALUES (%d, '%s')", array($user->uid, $text));
+  }
+}
+
+function thimun_form_profile($edit, $user, $register = FALSE) {
+  require_once('thimun.arrays.inc');
+  if (user_access('administer users')) {
+    $delegations = array_merge($delegations, $special);
+  }
+  $form = array();
+  $form['THIMUN'] = array(
+    '#title' => 'THIMUN Information',
+    '#type' => 'fieldset',
+  );
+  $form['THIMUN']['fname'] = array(
+    '#type' => 'textfield',
+    '#default_value' => isset($edit['THIMUN']['fname']) ? $edit['THIMUN']['fname'] : '',
+    '#title' => 'First Name',
+    '#maxlength' => '50',
+    '#required' => TRUE,
+    '#weight' => 1,
+  );
+  $form['THIMUN']['lname'] = array(
+    '#type' => 'textfield',
+    '#default_value' => isset($edit['THIMUN']['lname']) ? $edit['THIMUN']['lname'] : '',
+    '#title' => 'Last Name',
+    '#maxlength' => '50',
+    '#required' => TRUE,
+    '#weight' => 2,
+  );
+  $form['THIMUN']['nickname'] = array(
+    '#type' => 'textfield',
+    '#default_value' => isset($edit['THIMUN']['nickname']) ? $edit['THIMUN']['nickname'] : '',
+    '#title' => 'Nickname',
+    '#maxlength' => '50',
+    '#weight' => 3,
+  );
+  $form['THIMUN']['committee'] = array(
+    '#type' => 'select',
+    '#default_value' => isset($edit['THIMUN']['committee']) ? $edit['THIMUN']['committee'] : '',
+    '#title' => 'Committee',
+    '#options' => $committees,
+    '#required' => TRUE,
+    '#weight' => 4,
+  );
+  $form['THIMUN']['delegation'] = array(
+    '#type' => 'select',
+    '#default_value' => isset($edit['THIMUN']['delegation']) ? $edit['THIMUN']['delegation'] : '',
+    '#title' => 'Delegation',
+    '#options' => drupal_map_assoc(array_keys($delegations)),
+    '#required' => TRUE,
+    '#weight' => 5,
+    //ensure that it's not being filtered for the Ivory Coast one.
+    // ^^ that's being done in acquia_thimun's template.php
+  );
+  
+  $form['submit'] = array(
+    '#type' => 'submit',
+    '#value' => t('Save'),
+  );
+  return $form;
+}
+
+function thimun_retrieve_fields($uid) {
+  $sql = 'SELECT * FROM {thimun_information} WHERE uid = %d';
+  $result = db_query($sql, $uid);
+  return db_fetch_array($result);
+}
+
+function thimun_perm() {
+  return array('modify user information');
+}
+
+function thimun_user($op, &$edit, &$account) {
+  switch ($op) {
+    case 'view':
+      if (user_access('modify user information')) {
+        $account->content['thimun_modify_info'] = array(
+          '#type'   => 'markup',
+          '#value'  => l(t('Modify this user\'s THIMUN information'), 'user/'.$account->uid.'/edit'),
+          '#weight' => 11,
+          '#prefix' => '<br />',
+        );
+      }
+      break;
+    case 'load':
+      $account->THIMUN = thimun_load_profile($account);
+      return;
+    case 'register':
+      return thimun_form_profile($edit, $account, TRUE);
+    case 'update':
+      return thimun_save_profile($edit, $account);
+    case 'insert':
+      return thimun_save_profile($edit, $account, TRUE);
+    /*case 'view':
+      return profile_view_profile($user);*/
+    case 'form':
+      return thimun_form_profile($edit, $account);
+    case 'validate':
+      return thimun_validate_profile($edit);
+    case 'delete':
+      db_query('DELETE FROM {thimun_information} WHERE uid = %d', $account->uid);
+  }
+}
+
+function thimun_form_alter(&$form, $form_state, $form_id) {
+  // Normally a switch is used because you may want to alter more than
+  // one form and it is easy to add a new case for each form.
+  switch ($form_id) {
+    // This is our form ID.
+    case 'user_profile_form':
+      //Prevent people from tampering with their profile after they have registered.
+      if (!user_access('modify user information')) {
+        unset($form['THIMUN']);
+        unset($form['signature_settings']);
+        $form['THIMUN Information'] = array(
+          '#title' => 'THIMUN Information',
+          '#type' => 'fieldset',
+        );
+        $form['THIMUN Information']['error'] = array(
+          '#value' => t('You may not change your THIMUN information. If the information we have is inaccurate, please request your MUN Director to send an email to forum@thimun.org in order to verify the authenticity of the change.'),
+        );
+        unset($form['enable_pm_mail']);
+      }
+      break;
+  }
+}
+
+function thimun_switch_out_values($thimun) {
+  require_once 'thimun.arrays.inc';
+  foreach($thimun as $field => $values) {
+    if (is_array($values)) {
+      if($values['#type'] == 'select') {
+        switch($field) {
+          case variable_get('thimun_long_committee_field', NULL):
+            $values['#options'] = $committees;
+            break;
+          case variable_get('thimun_short_delegation_field', NULL):
+            $values['#options'] = array_keys($delegations);
+            break;
+        }
+      }
+    }
+  }
+  return $thimun;
+}
+
+function thimun_block($op = 'list', $delta = 0, $edit = array()) {
+  // The $op parameter determines what piece of information is being requested.
+  switch ($op) {
+    case 'list':
+      // If $op is "list", we just need to return a list of block descriptions.
+      // This is used to provide a list of possible blocks to the administrator,
+      // end users will not see these descriptions.
+      $blocks[0] = array(
+        'info'       => t('THIMUN Global Announcements'),
+        'visibility' => 0,
+        'pages' => 'node/'.variable_get('thimun_announcements_nid', 0),
+      );
+      return $blocks;
+    case 'view': 
+      // If $op is "view", then we need to generate the block for display
+      // purposes. The $delta parameter tells us which block is being requested.
+      switch ($delta) {
+        case 0:
+          $node = node_load(variable_get('thimun_announcements_nid', 0));
+          $block = array(
+            'subject' => $node->title,
+            'content' => $node->teaser.' '.l('Read more...', 'node/'.$node->nid),
+          );
+          break;
+      }
+      return $block;
+  }
+}
+
+function thimun_validate_profile($edit) {
+  $com = $edit['committee'];
+  $del = $edit['delegation'];
+  
+  
+  if (user_access('administer users')) {
+    require('thimun.arrays.inc');
+    // No checks for special people.
+    if (in_array($del, $special)) {
+      return $edit;
+    }
+  }
+  
+  //check for nones
+  if($com == 'NONE') {
+    form_set_error('committee', t('All delegates must specify a committee. If you are not a delegate, please contact forum@thimun.org to have your account created for you.'));
+  }
+  if(($com == 'Y1' || $com == 'Y2') && $del != 'NONE') {
+    form_set_error('delegation', t('Youth Assembly delegates may not specify a delegation. This field must be set to NONE.'));
+  } elseif (($com != 'Y1' && $com != 'Y2' && $com != 'NONE') && $del == 'NONE') {
+    form_set_error('delegation', t('Non Youth Assembly delegates must specify a delegation.'));
+  }
+  
+  //check country allowances
+  $count = db_result(db_query('SELECT COUNT(*) FROM {thimun_information} WHERE committee="%s" AND delegation="%s" AND uid != %d', $com, $del, $edit['_account']->uid));
+  //all are in GA, but only 1 per country per delegation is allowed
+  if($com == '1' || $com == '2' || $com == '3' || $com == '5' || $com == '6') {
+    //for GA, the delegation arrays define who is denied.
+    $delegations_ga1 = array('Friends of the Earth','Greenpeace','FAO','IFAD','ILO','IMF','INSTRAW','OCHA','UNCTAD','UNCDF','UNDP','UNEP','UNESCO','UNFPA','UNICEF','UNIDO','WHO','World Bank','World Trade Organization');
+    if($com == '1' && in_array($del, $delegations_ga1)) {
+      form_set_error('delegation', t('The delegation that you have selected is not a member of the General Assembly First Committee.'));
+    }
+    $delegations_ga2 = array('Amnesty International','OCHA','UNFPA','WHO');
+    if($com == '2' && in_array($del, $delegations_ga2)) {
+      form_set_error('delegation', t('The delegation that you have selected is not a member of the General Assembly Second Committee.'));
+    }
+    $delegations_ga3 = array('Friends of the Earth','Greenpeace','IMF','UNEP','UNESCO','World Trade Organization');
+    if($com == '3' && in_array($del, $delegations_ga3)) {
+      form_set_error('delegation', t('The delegation that you have selected is not a member of the General Assembly Third Committee.'));
+    }
+    
+    //TODO: check with JZ about ECA and GA4 misprint in handbook (pg11)
+    //that's right. no non-countries in GA5!
+    $delegations_ga5 = array('Holy See','Palestinian Authority','Amnesty International','Friends of the Earth','Greenpeace','Human Rights Watch','ECA','ESCAP','ESCWA','FAO','IFAD','ILO','IMF','INSTRAW','OCHA','UNCTAD','UNCDF','UNDP','UNEP','UNESCO','UNFPA','UNHCHR','UNICEF','UNIDO','WHO','World Bank','World Trade Organization');
+    if($com == '5' && in_array($del, $delegations_ga5)) {
+      form_set_error('delegation', t('The delegation that you have selected is not a member of the General Assembly Fifth Committee.'));
+    }
+    
+    //same with GA6
+    $delegations_ga6 = array('Holy See','Palestinian Authority','Amnesty International','Friends of the Earth','Greenpeace','Human Rights Watch','ECA','ESCAP','ESCWA','FAO','IFAD','ILO','IMF','INSTRAW','OCHA','UNCTAD','UNCDF','UNDP','UNEP','UNESCO','UNFPA','UNHCHR','UNICEF','UNIDO','WHO','World Bank','World Trade Organization');
+    if($com == '6' && in_array($del, $delegations_ga6)) {
+      form_set_error('delegation', t('The delegation that you have selected is not a member of the General Assembly Sixth Committee.'));
+    }
+    
+    if($count != 0) {
+      form_set_error('delegation', t('The delegation you have selected already has a person in that committee. If this is an error, please ask your MUN Director to contact forum@thimun.org.'));
+    }
+  }
+  
+  //SC
+  $sc = array('Austria', 'Burkina Faso', 'Costa Rica', 'Croatia', 'Japan', 'Libya', 'Mexico', 'Turkey', 'Uganda', 'Viet Nam', 'China', 'France', 'Russia', 'United Kingdom', 'United States of America');
+  if($com == 'S') {
+    if(!in_array($del, $sc)) {
+      form_set_error('delegation', t('The delegation that you have selected is not a member of the Security Council.'));
+    }
+    if($count+1 > 2) {
+      form_set_error('delegation', t('The delegation that you have selected has reached the maximum number of members it can send to the Security Council.'));
+    }
+  }
+  
+  //Eco
+  $countries_eco = array('Algeria', 'Barbados', 'Belarus', 'Bolivia', 'Brazil', 'Cameroon', 'Cape Verde', 'China', 'Congo', 'C&ocirc;te d\'Ivoire', 'El Salvador', 'Estonia', 'France', 'Germany', 'Greece', 'Guatemala', 'Guinea-Bissau', 'India', 'Indonesia', 'Iraq', 'Japan', 'Kazakhstan', 'Liechtenstein', 'Luxembourg', 'Malawi', 'Malaysia', 'Mauritius', 'Moldova', 'Morocco', 'Mozambique', 'Namibia', 'Netherlands', 'New Zealand', 'Niger', 'Norway', 'Pakistan', 'Peru', 'Philippines', 'Poland', 'Portugal', 'Rep. Korea', 'Romania', 'Russia', 'Saint Kitts & Nevis', 'Saint Lucia', 'Saudi Arabia', 'Somalia', 'Sudan', 'Sweden', 'United Kingdom', 'United States of America', 'Uruguay', 'Venezuela');
+  if($com == 'E') {
+    if(!in_array($del, $countries_eco)) {
+      $delegations_eco = array('Holy See','Palestinian Authority','Amnesty International','Friends of the Earth','Greenpeace','Human Rights Watch','ECA','ESCAP','ESCWA','FAO','IFAD','ILO','IMF','INSTRAW','OCHA','UNCTAD','UNCDF','UNDP','UNEP','UNESCO','UNFPA','UNHCHR','UNICEF','UNIDO','WHO','World Bank','World Trade Organization');
+      if(!in_array($del, $delegations_eco)) {
+        form_set_error('delegation', t('The delegation that you have selected is not a member of the ECOSOC.'));
+      } elseif($count+1 > 1) {
+        form_set_error('delegation', t('The delegation that you have selected has reached the maximum number of members it can send to the ECOSOC.'));
+      }
+    } elseif($count+1 > 2) {
+      form_set_error('delegation', t('The delegation that you have selected has reached the maximum number of members it can send to the ECOSOC.'));
+    }
+  }
+  
+  //csd
+  $countries_csd = array('Antigua & Barbuda', 'Australia', 'Bahrain', 'Belarus', 'Belgium', 'Belize', 'Bolivia', 'Cameroon', 'Canada', 'Cape Verde', 'Chile', 'China', 'Costa Rica', 'Croatia', 'Cuba', 'Czech Republic', 'DPR Korea', 'DR Congo', 'Djibouti', 'France', 'Gambia', 'Germany', 'Guatemala', 'Guinea', 'Haiti', 'India', 'Indonesia', 'Iran', 'Israel', 'Italy', 'Japan', 'Kuwait', 'Mexico', 'Monaco', 'Netherlands', 'Peru', 'Poland', 'Portugal', 'Rep. Korea', 'Russia',  'Saudi Arabia', 'Senegal', 'Serbia', 'South Africa', 'Spain', 'Sudan', 'Sweden', 'Thailand', 'Tunisia', 'United Kingdom', 'United States of America', 'Tanzania', 'Zambia', 'Zimbabwe');
+  if($com == 'C') {
+    if(!in_array($del, $countries_csd)) {
+      $delegations_csd = array('Holy See','Palestinian Authority','Amnesty International','Friends of the Earth','Greenpeace','ECA','ESCAP','ESCWA','FAO','IFAD','ILO','IMF','INSTRAW','OCHA','UNCTAD','UNCDF','UNDP','UNEP','UNFPA','UNIDO','WHO','World Bank','World Trade Organization');
+      if(!in_array($del, $delegations_csd)) {
+        form_set_error('delegation', t('The delegation that you have selected is not a member of the Commission on Sustainable Development.'));
+      } elseif($count+1 > 1) {
+        form_set_error('delegation', t('The delegation that you have selected has reached the maximum number of members it can send to the Commission on Sustainable Development.'));
+      }
+    } elseif($count+1 > 2) {
+      form_set_error('delegation', t('The delegation that you have selected has reached the maximum number of members it can send to the Commission on Sustainable Development.'));
+    }
+  }
+  
+  //ICJ and APQ
+  if($com == 'I') {
+    form_get_errors();
+    form_set_error('committee', t('Delegates in the International Court of Justice should not use this forum as a tool for communicating with other delegates. Instead, they should enroll themselves in the mailing list for this committee by contacting their president.'));
+  }
+  if($com == 'A') {
+    form_get_errors();
+    form_set_error('committee', t('Delegates in the Advisory Panel on the Question of Central Asia should not use this forum as a tool for communicating with other delegates. Instead, they should enroll themselves in the mailing list for this committee by contacting their president.'));
+  }
+  return $edit;
+}

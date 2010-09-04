@@ -1,0 +1,7 @@
+name = THIMUN
+description = Provides custom features (especially the registration form) for THIMUN Singapore 2009. Made by <a href="http://akshayjoshi.com">Akshay Joshi</a>.
+package = Other
+core = 6.x
+dependencies[] = signature_forum
+dependencies[] = profile
+dependencies[] = realname
