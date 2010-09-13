@@ -30,9 +30,15 @@ function realname_drumun_get_fields($current) {
 }
 
 function drumun_load_profile(&$user) {
-  $result = db_query('SELECT * FROM {drumun_information} WHERE uid = %d', $user->uid);
-  while ($ret = db_fetch_array($result)) {
-    return $ret;
+  static $cache = array();
+  if(!isset($cache[$user->uid])) {
+    $result = db_query('SELECT * FROM {drumun_information} WHERE uid = %d', $user->uid);
+    while ($ret = db_fetch_array($result)) {
+      $user->MUN = $ret;
+      $cache[$user->uid] = $ret;
+    }
+  } else {
+    $user->MUN = $cache[$user->uid];
   }
 }
 
@@ -78,23 +84,23 @@ function drumun_build_realname($user) {
   require('drumun.arrays.inc');
 
   //build
-  $profile = drumun_load_profile($user);
-  if ($profile['committee'] != 'NONE') {
-    $text = $profile['committee'].' ';
+  drumun_load_profile($user);
+  if ($user->MUN['committee'] != 'NONE') {
+    $text = $user->MUN['committee'].' ';
   }
-  if ($profile['delegation'] != 'NONE') {
-    $text .= $profile['delegation'].' ';
+  if ($user->MUN['delegation'] != 'NONE') {
+    $text .= $user->MUN['delegation'].' ';
   }
 
   // Check for duplicate matches between people.
-  if (db_result(db_query("SELECT COUNT(*) FROM {drumun_realname} WHERE value = '%s'", $text.$profile['fname']))) {
-    $text .= $profile['nickname'];
+  if (db_result(db_query("SELECT COUNT(*) FROM {drumun_realname} WHERE value = '%s'", $text.$user->MUN['fname']))) {
+    $text .= $user->MUN['nickname'];
   } else {
-    $text .= $profile['fname'];
+    $text .= $user->MUN['fname'];
   }
 
-  if ($profile['delegation'] == 'Forum Architect and Administrator' || $profile['delegation'] == 'Tester' || $profile['delegation'] == 'MUN Director' || $profile['delegation'] == 'THIMUN Board of Directors' || $profile['delegation'] == 'Conference Management' || $profile['delegation'] == 'Deputy Secretary General' || $profile['delegation'] == 'Secretary General' || $profile['delegation'] == 'President of the General Assembly') {
-    $text = $profile['fname'].' '.$profile['lname'];
+  if ($user->MUN['delegation'] == 'Forum Architect and Administrator' || $user->MUN['delegation'] == 'Tester' || $user->MUN['delegation'] == 'MUN Director' || $user->MUN['delegation'] == 'Board of Directors' || $user->MUN['delegation'] == 'Conference Management' || $user->MUN['delegation'] == 'Deputy Secretary General' || $user->MUN['delegation'] == 'Secretary General' || $user->MUN['delegation'] == 'President of the General Assembly') {
+    $text = $user->MUN['fname'].' '.$user->MUN['lname'];
   }
 
   //save to profile field
@@ -123,15 +129,15 @@ function drumun_build_signature($user) {
   $delegations = array_merge($delegations, $special);
 
   //build
-  $profile = drumun_load_profile($user);
-  $del = $delegations[$profile['delegation']];
-  $com = $committees[$profile['committee']];
-  if($profile['committee'] == 'Y1' || $profile['committee'] == 'Y2') {
+  drumun_load_profile($user);
+  $del = $delegations[$user->MUN['delegation']];
+  $com = $committees[$user->MUN['committee']];
+  if($user->MUN['committee'] == 'Y1' || $user->MUN['committee'] == 'Y2') {
     $arr = explode(' - ', $com);
     $com = $arr[0];
     $del = 'the Committee on ' . $arr[1];
   }
-  $text = $profile['fname'].' '.$profile['lname'];
+  $text = $user->MUN['fname'].' '.$user->MUN['lname'];
   $text .= "\n";
 
   if (!in_array($del, $special)) {
@@ -148,7 +154,7 @@ function drumun_build_signature($user) {
   } else {
     $text .= $del;
     //Nicknames used as School field for MUN Directors
-    if ($del == 'MUN Director') $text .= "\n".$profile['nickname'];
+    if ($del == 'MUN Director') $text .= "\n".$user->MUN['nickname'];
   }
 
   //save to signature database
@@ -242,7 +248,7 @@ function drumun_user($op, &$edit, &$account) {
       }
       break;
     case 'load':
-      $account->drumun = drumun_load_profile($account);
+      $account->MUN = drumun_load_profile($account);
       return;
     case 'register':
       return drumun_form_profile($edit, $account, TRUE);
