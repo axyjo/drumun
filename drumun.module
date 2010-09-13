@@ -12,6 +12,23 @@ function drumun_menu_alter(&$items) {
   $items['node']['access callback'] = FALSE;
 }
 
+/*
+ * Realname module support for this module.
+ */
+
+function realname_drumun_get_fields($current) {
+  $fields = $links = array();
+  foreach($items as $name) {
+    $selected = array_key_exists($name, $current);
+    $fields[$name] = array(
+      'title' => $field['title'],
+      'weight' => $selected ? $current[$name] : 0,
+      'selected' => $selected,
+    );
+  }
+  return array('fields' => $fields, 'links' => $links);
+}
+
 function drumun_load_profile(&$user) {
   $result = db_query('SELECT * FROM {drumun_information} WHERE uid = %d', $user->uid);
   while ($ret = db_fetch_array($result)) {
@@ -291,7 +308,6 @@ function drumun_switch_out_values($drumun) {
 function drumun_validate_profile($edit) {
   $com = $edit['committee'];
   $del = $edit['delegation'];
-
 
   if (user_access('administer users')) {
     require('drumun.arrays.inc');
