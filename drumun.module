@@ -77,8 +77,6 @@ function drumun_build_realname($user) {
   //thus making $delegations and $committees equal to NULL
   require('drumun.arrays.inc');
 
-  $fid = variable_get('drumun_display_name_fid', 0);
-
   //build
   $profile = drumun_load_profile($user);
   if ($profile['committee'] != 'NONE') {
@@ -89,7 +87,7 @@ function drumun_build_realname($user) {
   }
 
   // Check for duplicate matches between people.
-  if (db_result(db_query("SELECT COUNT(*) FROM {profile_values} WHERE fid = %d AND value = '%s'", $fid, $text.$profile['fname']))) {
+  if (db_result(db_query("SELECT COUNT(*) FROM {drumun_realname} WHERE value = '%s'", $text.$profile['fname']))) {
     $text .= $profile['nickname'];
   } else {
     $text .= $profile['fname'];
@@ -100,11 +98,11 @@ function drumun_build_realname($user) {
   }
 
   //save to profile field
-  if (db_result(db_query("SELECT value FROM {profile_values} WHERE uid = %d AND fid = %d", $user->uid, $fid)) != FALSE) {
-    db_query("UPDATE {profile_values} SET value='%s' WHERE uid = %d AND fid = %d", array($text, $user->uid, $fid));
+  if (db_result(db_query("SELECT value FROM {drumun_realname} WHERE uid = %d", $user->uid)) != FALSE) {
+    db_query("UPDATE {drumun_realname} SET value='%s' WHERE uid = %d", array($text, $user->uid));
   }
   else {
-    db_query("INSERT INTO {profile_values} (uid, fid, value) VALUES (%d, %d, '%s')", array($user->uid, $fid, $text));
+    db_query("INSERT INTO {drumun_realname} (uid, value) VALUES (%d, '%s')", array($user->uid, $text));
   }
 
   $result = db_query("SELECT u.uid, u.name, u.mail FROM {users} u WHERE uid >= %d ORDER BY uid ASC", $user->uid);

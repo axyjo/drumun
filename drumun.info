@@ -3,5 +3,4 @@ description = Provides custom features for Model UN conference forums. Made by <
 package = Other
 core = 6.x
 dependencies[] = signature_forum
-dependencies[] = profile
 dependencies[] = realname

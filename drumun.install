@@ -1,7 +1,6 @@
 <?php
 
 function drumun_install() {
-  variable_set('drumun_display_name_fid', 9);
   drupal_install_schema('drumun');
 }
 
@@ -52,10 +51,28 @@ function drumun_schema() {
     ),
     'primary key' => array('uid'),
   );
+  $schema['drumun_realname'] = array(
+    'description' => 'Holds info about each user\'s realname',
+    'fields' => array(
+      'uid' => array(
+        'description' => 'User ID of whom we\'re storing',
+        'type' => 'int',
+        'not null' => TRUE,
+        'default' => 0
+      ),
+      'value' => array(
+        'description' => 'Realname.',
+        'type' => 'varchar',
+        'length' => '200',
+        'not null' => TRUE,
+        'default' => ' '
+      ),
+    ),
+    'primary key' => array('uid'),
+  );
   return $schema;
 }
 
 function drumun_uninstall() {
-  variable_set('drumun_display_name_fid');
   drupal_uninstall_schema('drumun');
 }
